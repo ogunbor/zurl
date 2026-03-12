@@ -1,35 +1,30 @@
 use actix_web::{web, App, HttpServer};
-use dotenv::dotenv;
-use sqlx::mysql::MySqlPoolOptions;
-use std::env;
-
-pub mod api;
-pub mod models;
-
-pub struct AppState {
-    pub db: sqlx::MySqlPool,
-}
+use zurl::{api, configuration, AppState, Settings};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    dotenv().ok();
+    // Load configuration
+    let settings = Settings::from_env().expect("Failed to load configuration");
 
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
-    let pool = MySqlPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
+    // Create database pool
+    let pool = configuration::database::create_pool(&settings.database_url)
         .await
-        .expect("Failed to connect to database");
+        .expect("Failed to create database pool");
 
-    println!("Zurl running at http://127.0.0.1:8080");
+    // Create app state
+    let app_state = web::Data::new(AppState { pool });
+
+    println!(
+        "🚀 Server starting at http://{}:{}",
+        settings.host, settings.port
+    );
 
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(AppState { db: pool.clone() }))
-            .configure(api::urls::configure)
+            .app_data(app_state.clone()) // ← Share state with all workers
+            .configure(api::urls::configure) // ← Configure routes
     })
-    .bind("127.0.0.1:8080")?
+    .bind((settings.host.as_str(), settings.port))?
     .run()
     .await
 }
