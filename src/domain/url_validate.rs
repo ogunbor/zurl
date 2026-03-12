@@ -10,7 +10,6 @@ impl Url {
         } else {
             Err(format!("{} is not a valid URL", s))
         }
-        
     }
 }
 

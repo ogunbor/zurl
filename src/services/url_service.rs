@@ -22,4 +22,13 @@ impl UrlService {
 
         Ok(url_short)
     }
+
+    pub async fn get_url(pool: &MySqlPool, url_short: &str) -> Result<String, DomainError> {
+        let url = UrlRepository::find_by_short(pool, url_short)
+            .await
+            .map_err(|e| DomainError::DatabaseError(e.to_string()))?
+            .ok_or(DomainError::NotFound)?;
+
+        Ok(url)
+    }
 }

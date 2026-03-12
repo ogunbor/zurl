@@ -1,5 +1,7 @@
-use crate::{api::AppState, models::UrlShortenerRequest, services::UrlService};
-use actix_web::{post, web, HttpResponse, Responder};
+use crate::{
+    api::AppState, domain::DomainError, models::UrlShortenerRequest, services::UrlService,
+};
+use actix_web::{get, post, web, HttpResponse, Responder};
 use serde_json::json;
 
 #[post("/shortener")]
@@ -16,6 +18,22 @@ pub async fn shortener(
     }
 }
 
+#[get("/{code}")]
+pub async fn redirect(state: web::Data<AppState>, path: web::Path<String>) -> impl Responder {
+    let code = path.into_inner();
+
+    match UrlService::get_url(&state.pool, &code).await {
+        Ok(url) => HttpResponse::Found()
+            .append_header(("Location", url))
+            .finish(),
+        Err(DomainError::NotFound) => {
+            HttpResponse::NotFound().json(json!({"error": "Short URL not found"}))
+        }
+        Err(e) => HttpResponse::InternalServerError().json(json!({"error": e.to_string()})),
+    }
+}
+
 pub fn configure(cfg: &mut actix_web::web::ServiceConfig) {
     cfg.service(shortener);
+    cfg.service(redirect);
 }

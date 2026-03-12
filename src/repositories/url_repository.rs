@@ -1,5 +1,6 @@
 use sqlx::MySqlPool;
 use uuid::Uuid;
+
 pub struct UrlRepository;
 
 impl UrlRepository {
@@ -19,5 +20,18 @@ impl UrlRepository {
             .await?;
 
         Ok((result.last_insert_id(), url_short))
+    }
+
+    /// Find a URL by its short code
+    pub async fn find_by_short(
+        pool: &MySqlPool,
+        url_short: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        let row = sqlx::query_scalar::<_, String>("SELECT url FROM urls WHERE url_short = ?")
+            .bind(url_short)
+            .fetch_optional(pool)
+            .await?;
+
+        Ok(row)
     }
 }
